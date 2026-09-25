@@ -11,11 +11,39 @@ export default function TaskHistory({ taskList, onToggleComplete }) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const safeTaskList = Array.isArray(taskList) ? taskList : [];
-  
-  // Lọc ra các task đã hoàn thành
-  const completedTasks = safeTaskList.filter((t) => t && t.completed);
 
-  if (completedTasks.length === 0) return null;
+  // Lấy key ngày hôm nay theo định dạng YYYY-MM-DD
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const todayKey = `${year}-${month}-${day}`;
+
+  // 🎯 LỌC CHỈ LẤY CÁC TASK ĐÃ HOÀN THÀNH CỦA NGÀY HÔM NAY
+  const completedTodayTasks = safeTaskList.filter((t) => {
+    if (!t || !t.completed) return false;
+
+    // Trường hợp 1: So sánh trực tiếp qua dateKey
+    if (t.dateKey === todayKey) return true;
+
+    // Trường hợp 2: Bóc tách ngày từ chuỗi dateTimeStr (dạng DD/MM/YYYY HH:mm)
+    if (t.dateTimeStr) {
+      const [dPart] = t.dateTimeStr.split(' ');
+      if (dPart && dPart.includes('/')) {
+        const [taskDay, taskMonth, taskYear] = dPart.split('/').map(Number);
+        return (
+          taskDay === now.getDate() &&
+          taskMonth === now.getMonth() + 1 &&
+          taskYear === now.getFullYear()
+        );
+      }
+    }
+
+    return false;
+  });
+
+  // Nếu hôm nay không có task nào hoàn thành thì ẩn toàn bộ khung này
+  if (completedTodayTasks.length === 0) return null;
 
   return (
     <View style={styles.container}>
@@ -26,19 +54,19 @@ export default function TaskHistory({ taskList, onToggleComplete }) {
         activeOpacity={0.7}
       >
         <View style={styles.titleGroup}>
-          <Text style={styles.headerTitle}>✅ Lịch Sử Đã Hoàn Thành</Text>
+          <Text style={styles.headerTitle}>✅ Hoàn Thành Hôm Nay</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{completedTasks.length}</Text>
+            <Text style={styles.badgeText}>{completedTodayTasks.length}</Text>
           </View>
         </View>
 
         <Text style={styles.toggleIcon}>{isCollapsed ? '▼' : '▲'}</Text>
       </TouchableOpacity>
 
-      {/* DANH SÁCH CÔNG VIỆC (ĐÃ BỎ NÚT XÓA 🗑️) */}
+      {/* DANH SÁCH CÔNG VIỆC HOÀN THÀNH HÔM NAY */}
       {!isCollapsed && (
         <View style={styles.historyList}>
-          {completedTasks.map((item, index) => (
+          {completedTodayTasks.map((item, index) => (
             <View key={`${item.id}-${index}`} style={styles.taskCard}>
               <TouchableOpacity
                 style={styles.checkboxArea}
