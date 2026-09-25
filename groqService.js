@@ -1,17 +1,39 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fallbackTimeParser } from './fallbackService';
 
-// 🔑 API Key Groq của bạn
-const GROQ_API_KEY = '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';
+// 🔑 API Key MẶC ĐỊNH của bạn
+const DEFAULT_GROQ_API_KEY = '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';
+
+/**
+ * 🛠️ Hàm ưu tiên lấy Groq API Key
+ * - Nếu người dùng đã nhập Key cá nhân trong Settings -> Dùng Key cá nhân
+ * - Nếu người dùng chưa nhập Key cá nhân -> Dùng Key mặc định của bạn
+ */
+async function getActiveGroqApiKey() {
+  try {
+    const userSavedKey = await AsyncStorage.getItem('GROQ_API_KEY');
+    if (userSavedKey && userSavedKey.trim().length > 0) {
+      console.log('🔑 Đang sử dụng Groq API Key cá nhân của người dùng.');
+      return userSavedKey.trim();
+    }
+  } catch (e) {
+    console.log('Lỗi đọc API Key cá nhân:', e);
+  }
+  
+  console.log('⚡ Đang sử dụng Groq API Key mặc định của hệ thống.');
+  return DEFAULT_GROQ_API_KEY;
+}
 
 /**
  * 🛠️ Hàm tự động lấy mô hình Chat/LLM đang hoạt động thực tế trên Groq
  */
 async function getDynamicGroqModel() {
+  const activeKey = await getActiveGroqApiKey();
   try {
     const res = await fetch('https://api.groq.com/openai/v1/models', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${activeKey}`,
       },
     });
     const data = await res.json();
@@ -45,6 +67,9 @@ async function getDynamicGroqModel() {
  */
 async function callGroqApi(promptText, isJson = false) {
   const url = 'https://api.groq.com/openai/v1/chat/completions';
+  
+  // Lấy API Key thực tế (Cá nhân hoặc Mặc định)
+  const activeKey = await getActiveGroqApiKey();
   const targetModel = await getDynamicGroqModel();
 
   const systemMessage = isJson
@@ -69,7 +94,7 @@ async function callGroqApi(promptText, isJson = false) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Authorization': `Bearer ${activeKey}`,
     },
     body: JSON.stringify(bodyData),
   });
@@ -185,19 +210,54 @@ Hãy trả về duy nhất định dạng JSON:
 }
 
 /**
- * 3. HÀM TẠO BÁO CÁO OFFLINE MẪU CỨNG MERGE DỮ LIỆU THỰC TẾ GỬI SẾP
+ * 3. AI HỖ TRỢ CHIA NHỎ TASK KHÓ THÀNH CÁC SUB-TASKS
+ */
+export async function breakdownTaskWithAi(taskText) {
+  if (!taskText) return [];
+
+  const promptText = `Công việc: "${taskText}".
+Hãy chia nhỏ công việc này thành 3 bước ngắn gọn.
+Chỉ trả về JSON duy nhất theo mẫu: {"steps": ["Bước 1", "Bước 2", "Bước 3"]}`;
+
+  try {
+    const resultText = await callGroqApi(promptText, true);
+    const cleanText = resultText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanText);
+
+    let stepsArray = [];
+    if (Array.isArray(parsed)) {
+      stepsArray = parsed;
+    } else if (parsed && Array.isArray(parsed.steps)) {
+      stepsArray = parsed.steps;
+    } else if (parsed && typeof parsed === 'object') {
+      stepsArray = Object.values(parsed);
+    }
+
+    if (!stepsArray || stepsArray.length === 0) return [];
+
+    return stepsArray.slice(0, 3).map((stepText, index) => ({
+      id: `sub_${Date.now()}_${index}`,
+      text: String(stepText),
+      completed: false,
+    }));
+  } catch (err) {
+    console.log('Lỗi AI chia nhỏ task (Ẩn UI kết quả):', err.message);
+    return [];
+  }
+}
+
+/**
+ * 4. HÀM TẠO BÁO CÁO OFFLINE MẪU CỨNG MERGE DỮ LIỆU THỰC TẾ GỬI SẾP
  */
 export function generateLocalReport(taskList = []) {
   const now = new Date();
   
-  // Tạo chuỗi ngày hôm nay dạng DD/MM/YYYY và YYYY-MM-DD
   const day = String(now.getDate()).padStart(2, '0');
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const year = now.getFullYear();
   const todayFormatted = `${day}/${month}/${year}`;
   const todayStr = `${year}-${month}-${day}`;
 
-  // Tạo chuỗi ngày mai
   const tomorrow = new Date();
   tomorrow.setDate(now.getDate() + 1);
   const tDay = String(tomorrow.getDate()).padStart(2, '0');
@@ -205,7 +265,6 @@ export function generateLocalReport(taskList = []) {
   const tYear = tomorrow.getFullYear();
   const tomorrowStr = `${tYear}-${tMonth}-${tDay}`;
 
-  // Hàm chuẩn hóa dateKey về YYYY-MM-DD từ bất kỳ định dạng nào của task
   const getNormalizedDateKey = (task) => {
     if (task.dateKey) {
       if (task.dateKey.includes('/')) {
@@ -224,14 +283,12 @@ export function generateLocalReport(taskList = []) {
     return '';
   };
 
-  // Lấy phần giờ (HH:mm) để hiển thị
   const getTimeOnly = (dateTimeStr) => {
     if (!dateTimeStr) return '';
     const parts = dateTimeStr.split(' ');
     return parts[1] ? `(lúc ${parts[1]})` : '';
   };
 
-  // Merge & Phân loại dữ liệu thực tế từ taskList
   const doneToday = taskList.filter(t => getNormalizedDateKey(t) === todayStr && t.completed);
   const pendingToday = taskList.filter(t => getNormalizedDateKey(t) === todayStr && !t.completed);
   const tasksTomorrow = taskList.filter(t => getNormalizedDateKey(t) === tomorrowStr);
@@ -241,7 +298,6 @@ export function generateLocalReport(taskList = []) {
   reportLines.push(`📋 BÁO CÁO CÔNG VIỆC NGÀY ${todayFormatted}`);
   reportLines.push(`----------------------------------------`);
 
-  // Mục I: Hoàn thành
   reportLines.push(`I. CÔNG VIỆC ĐÃ HOÀN THÀNH (${doneToday.length})`);
   if (doneToday.length > 0) {
     doneToday.forEach((t, idx) => {
@@ -253,7 +309,6 @@ export function generateLocalReport(taskList = []) {
 
   reportLines.push(``);
 
-  // Mục II: Chưa hoàn thành
   reportLines.push(`II. CÔNG VIỆC CHƯA HOÀN THÀNH (${pendingToday.length})`);
   if (pendingToday.length > 0) {
     pendingToday.forEach((t, idx) => {
@@ -265,7 +320,6 @@ export function generateLocalReport(taskList = []) {
 
   reportLines.push(``);
 
-  // Mục III: Kế hoạch ngày mai
   reportLines.push(`III. KẾ HOẠCH NGÀY MAI (${tDay}/${tMonth}) (${tasksTomorrow.length})`);
   if (tasksTomorrow.length > 0) {
     tasksTomorrow.forEach((t, idx) => {
@@ -276,48 +330,4 @@ export function generateLocalReport(taskList = []) {
   }
 
   return reportLines.join('\n');
-}
-/**
- * 4. AI HỖ TRỢ CHIA NHỎ TASK KHÓ THÀNH CÁC SUB-TASKS
- */
-/**
- * 4. AI HỖ TRỢ CHIA NHỎ TASK KHÓ THÀNH CÁC SUB-TASKS (XỬ LÝ ẨN KẾT QUẢ KHI LỖI)
- */
-export async function breakdownTaskWithAi(taskText) {
-  if (!taskText) return [];
-
-  const promptText = `Công việc: "${taskText}".
-Hãy chia nhỏ công việc này thành 3 bước ngắn gọn.
-Chỉ trả về JSON duy nhất theo mẫu: {"steps": ["Bước 1", "Bước 2", "Bước 3"]}`;
-
-  try {
-    const resultText = await callGroqApi(promptText, true);
-    
-    // Làm sạch chuỗi trước khi ép kiểu JSON
-    const cleanText = resultText.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleanText);
-
-    let stepsArray = [];
-    if (Array.isArray(parsed)) {
-      stepsArray = parsed;
-    } else if (parsed && Array.isArray(parsed.steps)) {
-      stepsArray = parsed.steps;
-    } else if (parsed && typeof parsed === 'object') {
-      stepsArray = Object.values(parsed);
-    }
-
-    if (!stepsArray || stepsArray.length === 0) {
-      return []; // Trả về mảng rỗng để ẩn hoàn toàn UI gợi ý
-    }
-
-    return stepsArray.slice(0, 3).map((stepText, index) => ({
-      id: `sub_${Date.now()}_${index}`,
-      text: String(stepText),
-      completed: false,
-    }));
-  } catch (err) {
-    console.log('Lỗi AI chia nhỏ task (Ẩn UI kết quả):', err.message);
-    // 🛡️ TRẢ VỀ MẢNG RỖNG KHI LỖI ĐỂ KHÔNG HIỂN THỊ UI RÁC
-    return [];
-  }
 }

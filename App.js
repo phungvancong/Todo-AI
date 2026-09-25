@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import UI Components
 import TaskList from './TaskList';
@@ -24,8 +25,22 @@ import { useNotes } from './useNotes';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tasks');
+  const [groqApiKey, setGroqApiKey] = useState('');
 
-  // Lấy state & hàm từ useTasks (Đã bổ sung 3 hàm/state xử lý Sub-tasks)
+  // 🔄 Tải API Key cá nhân từ AsyncStorage khi ứng dụng khởi chạy
+  useEffect(() => {
+    const loadApiKey = async () => {
+      try {
+        const savedKey = await AsyncStorage.getItem('GROQ_API_KEY');
+        if (savedKey) setGroqApiKey(savedKey);
+      } catch (e) {
+        console.log('Lỗi tải GROQ_API_KEY từ App.js:', e);
+      }
+    };
+    loadApiKey();
+  }, []);
+
+  // Lấy state & hàm từ useTasks
   const {
     taskList,
     taskInput,
@@ -35,12 +50,12 @@ export default function App() {
     loadingAi,
     isSyncing,
     statusMsg,
-    loadingTaskId,       // 👈 State loading khi chia nhỏ task
+    loadingTaskId,
     handleManualAddTask,
     handleAiParseTask,
     handleGetReport,
-    handleBreakdownTask, // 👈 Hàm chia nhỏ task bằng AI
-    toggleSubTask,       // 👈 Hàm tích chọn hoàn thành sub-task
+    handleBreakdownTask,
+    toggleSubTask,
     toggleTaskComplete,
     deleteTask,
     handleSyncCalendar,
@@ -49,8 +64,7 @@ export default function App() {
 
   const { noteList, addNote, deleteNote } = useNotes();
 
-  // Settings & Edit Modal State
-  const [groqApiKey, setGroqApiKey] = useState('');
+  // Edit Modal State
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -154,7 +168,7 @@ export default function App() {
           />
         )}
 
-        {/* TAB 4: CÀI ĐẶT */}
+        {/* TAB 4: CÀI ĐẶT (TRUYỀN CALLBACK QUẢN LÝ STATE API KEY) */}
         {activeTab === 'settings' && (
           <SettingsView
             apiKey={groqApiKey}

@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsView() {
   const [groqApiKey, setGroqApiKey] = useState('');
+  const [savedKey, setSavedKey] = useState('');
 
   useEffect(() => {
     loadKey();
@@ -19,31 +20,57 @@ export default function SettingsView() {
 
   const loadKey = async () => {
     try {
-      const savedKey = await AsyncStorage.getItem('GROQ_API_KEY');
-      if (savedKey) setGroqApiKey(savedKey);
+      const key = await AsyncStorage.getItem('GROQ_API_KEY');
+      if (key) {
+        setSavedKey(key);
+        setGroqApiKey(key);
+      }
     } catch (e) {
       console.log('Lỗi đọc Groq API Key:', e);
     }
   };
 
   const handleSave = async () => {
+    const trimmedKey = groqApiKey.trim();
+    if (!trimmedKey) {
+      Alert.alert('💡 Thông báo', 'Vui lòng nhập mã Groq API Key!');
+      return;
+    }
+
     try {
-      await AsyncStorage.setItem('GROQ_API_KEY', groqApiKey.trim());
-      Alert.alert('✅ Thành công', 'Đã lưu Groq API Key!');
+      await AsyncStorage.setItem('GROQ_API_KEY', trimmedKey);
+      setSavedKey(trimmedKey);
+      Alert.alert('✅ Thành công', 'Đã lưu Groq API Key cá nhân!');
     } catch (e) {
       Alert.alert('❌ Lỗi', 'Không thể lưu API Key.');
     }
   };
 
+  const handleClearKey = async () => {
+    try {
+      await AsyncStorage.removeItem('GROQ_API_KEY');
+      setSavedKey('');
+      setGroqApiKey('');
+      Alert.alert('🗑️ Đã xóa', 'Đã xóa API Key cá nhân. Ứng dụng sẽ dùng Key mặc định.');
+    } catch (e) {
+      console.log('Lỗi xóa API Key:', e);
+    }
+  };
+
+  const maskApiKey = (key) => {
+    if (!key || key.length < 10) return key;
+    return `${key.substring(0, 6)}...${key.substring(key.length - 4)}`;
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.header}>⚙️ Cài Đặt & Hướng Dẫn</Text>
+      <Text style={styles.header}>⚙️ Cài Đặt & HƯỚNG DẪN</Text>
 
       {/* 1. CẤU HÌNH GROQ API KEY */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>🔑 Cấu hình AI Groq API</Text>
+        <Text style={styles.cardTitle}>🔑 Cấu hình AI Groq API Cá Nhân</Text>
         <Text style={styles.subLabel}>
-          Nhập Groq API Key để bật tính năng tự động bóc tách giọng nói và tạo báo cáo lịch trình AI siêu tốc.
+          Nhập Groq API Key để bật tính năng tự động bóc tách giọng nói và tạo báo cáo lịch trình AI siêu tốc cho riêng bạn.
         </Text>
 
         <TextInput
@@ -56,9 +83,27 @@ export default function SettingsView() {
           secureTextEntry={true}
         />
 
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveBtnText}>💾 Lưu API Key</Text>
-        </TouchableOpacity>
+        {savedKey ? (
+          <Text style={styles.savedStatusText}>
+            ✅ Đang dùng Key cá nhân: <Text style={styles.boldText}>{maskApiKey(savedKey)}</Text>
+          </Text>
+        ) : (
+          <Text style={styles.defaultStatusText}>
+            ⚠️ Chưa có Key cá nhân. Đang dùng Key hệ thống mặc định.
+          </Text>
+        )}
+
+        <View style={styles.btnRow}>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+            <Text style={styles.saveBtnText}>💾 Lưu API Key</Text>
+          </TouchableOpacity>
+
+          {savedKey ? (
+            <TouchableOpacity style={styles.clearBtn} onPress={handleClearKey}>
+              <Text style={styles.clearBtnText}>🗑️ Xóa Key</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       {/* 2. HƯỚNG DẪN CẤU HÌNH API KEY MIỄN PHÍ */}
@@ -154,9 +199,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 13,
     color: '#2D3436',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  savedStatusText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    marginBottom: 10,
+  },
+  defaultStatusText: {
+    fontSize: 12,
+    color: '#E65100',
+    fontStyle: 'italic',
+    marginBottom: 10,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   saveBtn: {
+    flex: 1,
     backgroundColor: '#1E88E5',
     paddingVertical: 11,
     borderRadius: 10,
@@ -164,6 +225,20 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  clearBtn: {
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    alignItems: 'center',
+  },
+  clearBtnText: {
+    color: '#D32F2F',
     fontWeight: 'bold',
     fontSize: 13,
   },
