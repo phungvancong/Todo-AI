@@ -13,7 +13,11 @@ import {
   updateEventInNativeCalendar,
   syncEventsFromCalendar,
 } from './calendarService';
-import { registerForPushNotificationsAsync, scheduleNotification } from './notificationService';
+import { 
+  registerForPushNotificationsAsync, 
+  scheduleNotification,
+  cancelNotification 
+} from './notificationService';
 
 const STORAGE_TASK_KEY = 'APP_TASK_LIST';
 
@@ -138,11 +142,13 @@ export function useTasks() {
       .toString()
       .padStart(2, '0')}`;
 
-    await scheduleNotification(taskInput, targetDate);
+    // 🔔 Lấy notificationId khi tạo lịch hẹn thông báo
+    const notificationId = await scheduleNotification(taskInput, targetDate);
 
     const newTask = {
       id: `task_manual_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       calendarEventId,
+      notificationId, // 👈 Lưu mã thông báo báo thức
       text: taskInput,
       completed: false,
       dateTimeStr: formattedDateTime,
@@ -198,7 +204,8 @@ export function useTasks() {
           targetDate.setDate(targetDate.getDate() + 1);
         }
 
-        await scheduleNotification(parsedData.taskName, targetDate);
+        // 🔔 Lấy notificationId khi AI tạo lịch hẹn thông báo
+        const notificationId = await scheduleNotification(parsedData.taskName, targetDate);
         const calendarEventId = await addEventToNativeCalendar(parsedData.taskName, targetDate);
 
         const yearStr = targetDate.getFullYear();
@@ -216,6 +223,7 @@ export function useTasks() {
         const newTask = {
           id: `task_ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           calendarEventId,
+          notificationId, // 👈 Lưu mã thông báo báo thức
           text: parsedData.taskName,
           completed: false,
           dateTimeStr: formattedDateTime,
@@ -306,22 +314,42 @@ export function useTasks() {
     await saveTasks(updatedList);
   };
 
-  const toggleTaskComplete = async (id) => {
-    const updatedList = taskList.map((t) =>
-      String(t.id) === String(id) ? { ...t, completed: !t.completed } : t
-    );
-    await saveTasks(updatedList);
-  };
+  // 🔘 HÀM TÍCH CHỌN HOÀN THÀNH TASK (BẢO TỒN LỊCH NATIVE)
+   const toggleTaskComplete = async (id) => {
+     const updatedList = taskList.map((t) => {
+      if (String(t.id) === String(id)) {
+      const isNextCompleted = !t.completed;
 
-  // 🗑️ HÀM XÓA TRỰC TIẾP
+      // 🔕 Chỉ hủy thông báo nhắc nhở Push Notification (Giữ nguyên sự kiện trên Lịch Native)
+      if (isNextCompleted && t.notificationId) {
+        cancelNotification(t.notificationId);
+      }
+
+      return { ...t, completed: isNextCompleted };
+    }
+    return t;
+   });
+
+  await saveTasks(updatedList);
+};
+
+  // 🗑️ HÀM XÓA TRỰC TIẾP (TỰ ĐỘNG HỦY THÔNG BÁO)
   const deleteTask = async (id) => {
     try {
       const taskToDelete = taskList.find((t) => String(t.id) === String(id));
-      if (taskToDelete && taskToDelete.calendarEventId) {
-        try {
-          await deleteEventFromNativeCalendar(taskToDelete.calendarEventId);
-        } catch (calErr) {
-          console.log('Lỗi xóa trên Lịch native:', calErr);
+      if (taskToDelete) {
+        // Hủy sự kiện trên Lịch native
+        if (taskToDelete.calendarEventId) {
+          try {
+            await deleteEventFromNativeCalendar(taskToDelete.calendarEventId);
+          } catch (calErr) {
+            console.log('Lỗi xóa trên Lịch native:', calErr);
+          }
+        }
+
+        // 🔕 Hủy thông báo báo thức
+        if (taskToDelete.notificationId) {
+          await cancelNotification(taskToDelete.notificationId);
         }
       }
 
@@ -333,7 +361,7 @@ export function useTasks() {
     }
   };
 
-  // ✏️ HÀM SỬA TRỰC TIẾP (AN TOÀN BẢO TỒN MẢNG SUBTASKS)
+  // ✏️ HÀM SỬA TRỰC TIẾP (AN TOÀN BẢO TỒN MẢNG SUBTASKS VÀ THÔNG BÁO)
   const saveEditedTaskService = async ({
     editingTaskId,
     editTitle,

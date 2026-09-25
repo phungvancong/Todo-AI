@@ -165,25 +165,18 @@ export default function CalendarView({
                   <Text style={styles.timeText}>⏰ {item.dateTimeStr}</Text>
                 </View>
 
+                {/* DANH SÁCH CÔNG VIỆC TRONG MÀN LỊCH */}
                 <View style={styles.actionRow}>
-                  {onEditTask && (
-                    <TouchableOpacity
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      onPress={() => onEditTask(item)}
-                      style={styles.actionBtn}
-                    >
-                      <Text style={styles.actionIcon}>✏️</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {onDeleteTask && (
-                    <TouchableOpacity
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      onPress={() => onDeleteTask(item.id)}
-                      style={styles.actionBtn}
-                    >
-                      <Text style={styles.actionIcon}>🗑️</Text>
-                    </TouchableOpacity>
+                  {/* CHỈ HIỂN THỊ NÚT SỬA VÀ XÓA CHO CÔNG VIỆC CHƯA HOÀN THÀNH */}
+                  {!item.completed && (
+                    <>
+                      <TouchableOpacity style={styles.editBtn} onPress={() => onEditTask(item)}>
+                        <Text style={styles.btnIcon}>✏️</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.deleteBtn} onPress={() => onDeleteTask(item.id)}>
+                        <Text style={styles.btnIcon}>🗑️</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
                 </View>
               </View>

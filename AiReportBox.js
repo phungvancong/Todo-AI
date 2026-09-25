@@ -82,9 +82,9 @@ export default function AiReportBox({
               <Text style={styles.actionBtnText}>📋 Sao chép</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.stopBtn} onPress={handleStop}>
+            {/* <TouchableOpacity style={styles.stopBtn} onPress={handleStop}>
               <Text style={styles.actionBtnText}>⏹️ Dừng đọc</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
       ) : (
@@ -200,11 +200,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   copyBtn: {
-    flex: 1,
     backgroundColor: '#0984E3',
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,      // Giảm padding đứng cho nhỏ gọn
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+    alignSelf: 'flex-end',   // Co khung ôm đúng độ rộng văn bản
   },
   stopBtn: {
     backgroundColor: '#FF7675',
