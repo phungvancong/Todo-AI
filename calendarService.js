@@ -2,19 +2,18 @@ import { Alert } from 'react-native';
 import * as Calendar from 'expo-calendar/legacy';
 
 /**
- * Hàm lấy múi giờ tự động từ điện thoại (Ví dụ: Asia/Tokyo khi ở Nhật, Asia/Ho_Chi_Minh khi ở Việt Nam)
+ * Hàm lấy múi giờ tự động từ điện thoại
  */
 const getDeviceTimeZone = () => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Tokyo';
   } catch (e) {
-    return 'Asia/Tokyo'; // Fallback nếu thiết bị không hỗ trợ Intl API
+    return 'Asia/Tokyo';
   }
 };
 
 /**
  * 1. Thêm sự kiện mới vào Lịch Google / Lịch mặc định (Kèm cảnh báo trước 5 phút)
- * @returns {Promise<string|null>} Trả về eventId của Lịch
  */
 export const addEventToNativeCalendar = async (title, startDateObj) => {
   try {
@@ -41,8 +40,8 @@ export const addEventToNativeCalendar = async (title, startDateObj) => {
       console.log('⚠️ Dùng Lịch mặc định của thiết bị');
     }
 
-    const endDateObj = new Date(startDateObj.getTime() + 30 * 60 * 1000); // 30 phút
-    const timeZone = getDeviceTimeZone(); // Tự động lấy múi giờ thực tế của thiết bị
+    const endDateObj = new Date(startDateObj.getTime() + 30 * 60 * 1000);
+    const timeZone = getDeviceTimeZone();
 
     const eventId = await Calendar.createEventAsync(targetCalendarId, {
       title: title,
@@ -52,7 +51,7 @@ export const addEventToNativeCalendar = async (title, startDateObj) => {
       notes: 'Được tạo tự động từ ứng dụng To-Do AI',
       alarms: [
         {
-          relativeOffset: -5, // 🔔 Cảnh báo trước 5 phút (tính bằng phút)
+          relativeOffset: -5,
           method: Calendar.AlarmMethod.ALERT,
         },
       ],
@@ -83,7 +82,7 @@ export const deleteEventFromNativeCalendar = async (eventId) => {
 };
 
 /**
- * 3. Cập nhật (Sửa) sự kiện trên Lịch (Giữ cảnh báo trước 5 phút)
+ * 3. Cập nhật (Sửa) sự kiện trên Lịch
  */
 export const updateEventInNativeCalendar = async (eventId, newTitle, newStartDateObj) => {
   if (!eventId) return;
@@ -101,7 +100,7 @@ export const updateEventInNativeCalendar = async (eventId, newTitle, newStartDat
         notes: 'Cập nhật từ ứng dụng To-Do AI',
         alarms: [
           {
-            relativeOffset: -5, // 🔔 Giữ cảnh báo trước 5 phút khi cập nhật
+            relativeOffset: -5,
             method: Calendar.AlarmMethod.ALERT,
           },
         ],
@@ -114,7 +113,7 @@ export const updateEventInNativeCalendar = async (eventId, newTitle, newStartDat
 };
 
 /**
- * 4. Truy vấn đồng bộ tất cả các sự kiện về ứng dụng
+ * 4. Truy vấn đồng bộ tất cả các sự kiện về ứng dụng (Đã tối ưu không nuốt Data)
  */
 export const syncEventsFromCalendar = async (setTaskList, setIsSyncing) => {
   setIsSyncing(true);
@@ -133,11 +132,21 @@ export const syncEventsFromCalendar = async (setTaskList, setIsSyncing) => {
       return;
     }
 
-    const calendarIds = allCalendars.map(cal => cal.id);
+    // 💡 Lọc bỏ các lịch hệ thống tĩnh không phải công việc (Sinh nhật, Ngày lễ)
+    const activeCalendars = allCalendars.filter(cal => {
+      const titleLower = (cal.title || '').toLowerCase();
+      const isHolidays = titleLower.includes('holiday') || titleLower.includes('ngày lễ');
+      const isBirthdays = titleLower.includes('birthday') || titleLower.includes('sinh nhật');
+      return !isHolidays && !isBirthdays;
+    });
 
-    // 🕒 Mở rộng khoảng thời gian: Quét từ 30 ngày trước đến 180 ngày tới
+    const calendarIds = activeCalendars.length > 0 
+      ? activeCalendars.map(cal => cal.id) 
+      : allCalendars.map(cal => cal.id);
+
+    // 🕒 Quét rộng: 60 ngày trước đến 180 ngày tới
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
+    startDate.setDate(startDate.getDate() - 60);
     startDate.setHours(0, 0, 0, 0);
 
     const endDate = new Date();
@@ -162,7 +171,7 @@ export const syncEventsFromCalendar = async (setTaskList, setIsSyncing) => {
       const formattedDateTime = `${dayStr}/${monthStr}/${yearStr} ${eventDate.getHours().toString().padStart(2, '0')}:${eventDate.getMinutes().toString().padStart(2, '0')}`;
 
       return {
-        id: `sync_${event.id}_${eventDate.getTime()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: `sync_${event.id}_${eventDate.getTime()}`,
         calendarEventId: event.id,
         text: event.title || 'Công việc không tên',
         completed: false,
@@ -173,20 +182,15 @@ export const syncEventsFromCalendar = async (setTaskList, setIsSyncing) => {
     });
 
     setTaskList(prev => {
-      // 🔄 Lọc trùng dựa trên calendarEventId hoặc kết hợp tên + mốc thời gian
+      // 🛡️ BỘ LỌC CHUẨN XÁC: Chỉ chặn nếu TRÙNG HẲN calendarEventId
       const existingCalendarEventIds = new Set(prev.map(t => t.calendarEventId).filter(Boolean));
-      const existingKeys = new Set(prev.map(t => `${t.text}_${t.timestamp}`));
 
-      const newUniqueTasks = fetchedTasks.filter(t => {
-        const isDuplicateEventId = existingCalendarEventIds.has(t.calendarEventId);
-        const isDuplicateKey = existingKeys.has(`${t.text}_${t.timestamp}`);
-        return !isDuplicateEventId && !isDuplicateKey;
-      });
+      const newUniqueTasks = fetchedTasks.filter(t => !existingCalendarEventIds.has(t.calendarEventId));
 
       return [...prev, ...newUniqueTasks];
     });
 
-    Alert.alert('✅ Thành công', `Đã đồng bộ ${events.length} sự kiện từ Lịch!`);
+    Alert.alert('✅ Thành công', `Đã đồng bộ thành công ${events.length} sự kiện từ Lịch!`);
   } catch (error) {
     console.log('Lỗi đồng bộ Lịch:', error.message);
     Alert.alert('❌ Lỗi', 'Không thể truy vấn dữ liệu Lịch trên thiết bị.');

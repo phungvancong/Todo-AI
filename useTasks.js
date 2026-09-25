@@ -50,11 +50,26 @@ export function useTasks() {
     }
   };
 
+  // 🛡️ HÀM LƯU BẢO VỆ CHẮC CHẮN ĐÚNG DẠNG MẢNG
   const saveTasks = async (tasks) => {
     try {
+      let tasksArray = tasks;
+
+      // Nếu tasks truyền vào là một hàm updater (prev => ...), giải phỏng thành mảng thực tế
+      if (typeof tasks === 'function') {
+        tasksArray = tasks(taskList);
+      }
+
+      if (!Array.isArray(tasksArray)) {
+        console.log('⚠️ Dữ liệu truyền vào saveTasks không phải là mảng hợp lệ:', tasksArray);
+        return;
+      }
+
+      const validTasks = tasksArray.filter(t => t && t.id);
       const uniqueTasks = Array.from(
-        new Map(tasks.map((t) => [t.id, t])).values()
+        new Map(validTasks.map((t) => [String(t.id), t])).values()
       );
+
       setTaskList(uniqueTasks);
       await AsyncStorage.setItem(STORAGE_TASK_KEY, JSON.stringify(uniqueTasks));
     } catch (e) {
@@ -247,7 +262,7 @@ export function useTasks() {
     await saveTasks(updatedList);
   };
 
-  // 🗑️ HÀM XÓA TRỰC TIẾP CHUẨN ĐÚNG ÉP KIỂU STRING ID
+  // 🗑️ HÀM XÓA TRỰC TIẾP
   const deleteTask = async (id) => {
     try {
       const taskToDelete = taskList.find((t) => String(t.id) === String(id));
@@ -267,7 +282,7 @@ export function useTasks() {
     }
   };
 
-  // ✏️ HÀM SỬA TRỰC TIẾP VÀ CẬP NHẬT LẠI STORAGE
+  // ✏️ HÀM SỬA TRỰC TIẾP
   const saveEditedTaskService = async ({
     editingTaskId,
     editTitle,
@@ -286,7 +301,6 @@ export function useTasks() {
           let newDateKey = editDate;
           let formattedDateTime = `${editDate} ${editTime}`.trim();
 
-          // Chuyển dạng DD/MM/YYYY về YYYY-MM-DD
           if (editDate && editDate.includes('/')) {
             const [d, m, y] = editDate.split('/');
             newDateKey = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
@@ -321,8 +335,11 @@ export function useTasks() {
     }
   };
 
+  // 🔄 HÀM TRUYỀN CALLBACK ĐỒNG BỘ CHUẨN ĐÚNG DẠNG STATE UPDATER
   const handleSyncCalendar = () => {
-    syncEventsFromCalendar((newList) => saveTasks(newList), setIsSyncing);
+    syncEventsFromCalendar((updatedTaskList) => {
+      saveTasks(updatedTaskList);
+    }, setIsSyncing);
   };
 
   return {
