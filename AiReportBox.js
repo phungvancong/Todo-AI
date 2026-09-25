@@ -9,24 +9,37 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Speech from 'expo-speech';
+import { generateLocalReport } from './groqService';
 
 export default function AiReportBox({
   aiReport,
   setAiReport,
   loadingAi,
   onGenerateReport,
+  taskList = [],
 }) {
   /**
-   * Sao chép nội dung báo cáo
+   * 1. Tạo Báo cáo mẫu cứng Offline (Gửi Sếp)
+   */
+  const handleGenerateLocalReport = () => {
+    handleStop();
+    const reportText = generateLocalReport(taskList);
+    if (setAiReport) {
+      setAiReport(reportText);
+    }
+  };
+
+  /**
+   * 2. Sao chép nội dung báo cáo vào Bộ nhớ tạm (Clipboard)
    */
   const handleCopy = async () => {
     if (!aiReport) return;
     await Clipboard.setStringAsync(aiReport);
-    Alert.alert('✅ Thành công', 'Đã sao chép nội dung báo cáo!');
+    Alert.alert('✅ Thành công', 'Đã sao chép nội dung báo cáo vào bộ nhớ tạm!');
   };
 
   /**
-   * Dừng âm thanh đọc giọng nói
+   * 3. Dừng âm thanh đọc giọng nói
    */
   const handleStop = () => {
     if (Speech && typeof Speech.stop === 'function') {
@@ -38,7 +51,7 @@ export default function AiReportBox({
     <View style={styles.container}>
       {/* 1. HEADER */}
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>🤖 AI Trợ Lý </Text>
+        <Text style={styles.headerTitle}>📊 Tạo Báo Cáo Công Việc</Text>
 
         {aiReport && !loadingAi ? (
           <TouchableOpacity
@@ -63,10 +76,10 @@ export default function AiReportBox({
         <View style={styles.contentBox}>
           <Text style={styles.reportText}>{aiReport}</Text>
 
-          {/* THANH CÔNG CỤ: CHỈ CÒN COPY VÀ DỪNG ĐỌC */}
+          {/* THANH CÔNG CỤ: SAO CHÉP VÀ DỪNG ĐỌC */}
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
-              <Text style={styles.actionBtnText}>📋 Sao chép </Text>
+              <Text style={styles.actionBtnText}>📋 Sao chép</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.stopBtn} onPress={handleStop}>
@@ -76,25 +89,36 @@ export default function AiReportBox({
         </View>
       ) : (
         <Text style={styles.placeholderText}>
-          Bấm nút bên dưới để AI tổng hợp danh sách việc cần làm của bạn nhé!
+          Bấm một trong hai nút bên dưới để tạo báo cáo phù hợp nhu cầu của bạn!
         </Text>
       )}
 
-      {/* 3. NÚT DUY NHẤT TẠO BÁO CÁO */}
-      <TouchableOpacity
-        style={[styles.mainGenerateBtn, loadingAi && styles.disabledBtn]}
-        onPress={onGenerateReport}
-        disabled={loadingAi}
-      >
-        {loadingAi ? (
-          <View style={styles.btnLoadingRow}>
-            <ActivityIndicator size="small" color="#FFF" />
-            <Text style={styles.mainGenerateBtnText}> Đang soạn báo cáo...</Text>
-          </View>
-        ) : (
-          <Text style={styles.mainGenerateBtnText}>✨ Tạo Báo Cáo AI</Text>
-        )}
-      </TouchableOpacity>
+      {/* 3. NHÓM 2 NÚT TẠO BÁO CÁO */}
+      <View style={styles.buttonGroupRow}>
+        {/* NÚT BÁO CÁO MẪU CỨNG OFFLINE GỬI SẾP */}
+        <TouchableOpacity
+          style={[styles.actionGenerateBtn, styles.localReportBtn]}
+          onPress={handleGenerateLocalReport}
+        >
+          <Text style={styles.mainGenerateBtnText}>📄 Báo Cáo Gửi Sếp</Text>
+        </TouchableOpacity>
+
+        {/* NÚT BÁO CÁO AI */}
+        <TouchableOpacity
+          style={[styles.actionGenerateBtn, styles.aiReportBtn, loadingAi && styles.disabledBtn]}
+          onPress={onGenerateReport}
+          disabled={loadingAi}
+        >
+          {loadingAi ? (
+            <View style={styles.btnLoadingRow}>
+              <ActivityIndicator size="small" color="#FFF" />
+              <Text style={styles.mainGenerateBtnText}> Đang soạn...</Text>
+            </View>
+          ) : (
+            <Text style={styles.mainGenerateBtnText}>✨ Tạo Báo Cáo AI</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -162,9 +186,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   reportText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#2D3436',
-    lineHeight: 22,
+    lineHeight: 21,
+    fontFamily: 'monospace',
   },
   actionRow: {
     flexDirection: 'row',
@@ -200,13 +225,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 10,
   },
-  mainGenerateBtn: {
-    backgroundColor: '#1E88E5',
+  buttonGroupRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+  },
+  actionGenerateBtn: {
+    flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+  },
+  localReportBtn: {
+    backgroundColor: '#2E7D32', // Màu xanh lá doanh nghiệp
+  },
+  aiReportBtn: {
+    backgroundColor: '#1E88E5',
   },
   disabledBtn: {
     backgroundColor: '#90CAF9',
@@ -217,7 +253,7 @@ const styles = StyleSheet.create({
   },
   mainGenerateBtnText: {
     color: '#FFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
 });

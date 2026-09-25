@@ -105,6 +105,7 @@ export default function App() {
               setAiReport={setAiReport}
               loadingAi={loadingAi}
               onGenerateReport={handleGetReport}
+              taskList={taskList}
             />
 
             {/* 3. DANH SÁCH CÔNG VIỆC CẦN LÀM */}
