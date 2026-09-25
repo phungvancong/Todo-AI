@@ -1,0 +1,38 @@
+# 📝 Quản Lý Công Việc AI (Todo-AI App)
+
+Một ứng dụng di động quản lý công việc cá nhân thông minh được xây dựng trên nền tảng **React Native (Expo Go)**, tích hợp trí tuệ nhân tạo **Groq API (Llama 3.3 70B)** giúp bóc tách lịch trình tự động từ câu nói, tổng hợp báo cáo bằng AI và phản hồi bằng giọng đọc Text-to-Speech (TTS).
+
+---
+
+## 🌟 Tính Năng Nổi Bật
+
+* **✨ AI Auto Parse Task**: Nhập hoặc nói câu tự nhiên (ví dụ: *"Đi họp lúc 15g30"*), AI sẽ tự động phân tích ra tên việc, ngày, giờ và lên lịch nhắc nhở.
+* **🤖 AI Report Assistant**: Tổng hợp danh sách công việc thành báo cáo thông minh chỉ với 1 bấm nút, kèm đoạn văn thoại ngắn gọn.
+* **🔊 Text-to-Speech (TTS) Phản Hồi**: Tự động phát âm thanh xác nhận bằng tiếng Việt khi thêm công việc mới hoặc khi AI soạn xong báo cáo.
+* **🔄 Đồng Bộ Lịch Máy (Native Calendar)**: Tích hợp hai chiều với Lịch hệ thống (Google Calendar, iOS Calendar), hỗ trợ lấy múi giờ thực tế của thiết bị (`getDeviceTimeZone`).
+* **🔔 Nhắc Nhở Đặt Lịch (Push Notifications)**: Tự động lên lịch thông báo đẩy trước thời điểm diễn ra công việc.
+* **📌 Quản Lý Ghi Chú & Lịch Sử**: Lưu trữ ghi chú cá nhân và theo dõi lịch sử các công việc đã hoàn thành.
+
+---
+
+## 🏗️ Kiến Trúc Mã Nguồn
+
+```text
+todo-app/
+├── App.js                    # Core Container (Main Tab Navigation & Toast Banner)
+├── useTasks.js               # Custom Hook quản lý State công việc, TTS & AI Tasks
+├── useNotes.js               # Custom Hook quản lý State ghi chú
+│
+├── groqService.js            # Tích hợp Groq API (Llama-3.3-70b-versatile)
+├── calendarService.js        # Tích hợp Expo Calendar (Thêm, xóa, sửa, đồng bộ 2 chiều)
+├── notificationService.js    # Quản lý Push Notification nhắc nhở
+├── taskService.js            # Service xử lý các thao tác xóa/sửa task
+│
+├── TaskInputBox.js           # Component nhập việc & nút ✨ AI Auto
+├── AiReportBox.js            # Component khung báo cáo AI (Sao chép, Dừng đọc, Tạo báo cáo)
+├── TaskList.js               # Component danh sách việc cần làm
+├── TaskHistory.js            # Component danh sách việc đã hoàn thành
+├── CalendarView.js           # Màn hình Lịch trình & Nút 🔄 Đồng bộ Lịch máy
+├── NoteList.js               # Màn hình quản lý ghi chú
+├── SettingsView.js           # Màn hình cài đặt Groq API Key
+└── EditTaskModal.js          # Modal popup chỉnh sửa công việc
