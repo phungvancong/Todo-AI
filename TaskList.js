@@ -1,13 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 
-export default function TaskList({ taskList, onToggleComplete, onDeleteTask, onEditTask }) {
-  // Hàm tạo chuỗi dateKey (YYYY-MM-DD) chuẩn
+export default function TaskList({
+  taskList,
+  onToggleComplete,
+  onDeleteTask,
+  onEditTask,
+  onBreakdownTask,
+  onToggleSubTask,
+  loadingTaskId,
+}) {
+  // State quản lý việc thu gọn/mở rộng subtasks của từng task
+  const [collapsedTasks, setCollapsedTasks] = useState({});
+
+  const toggleCollapse = (taskId) => {
+    setCollapsedTasks((prev) => ({
+      ...prev,
+      [taskId]: !prev[taskId],
+    }));
+  };
+
   const getDateKey = (date) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
     const year = date.getFullYear();
@@ -16,7 +34,6 @@ export default function TaskList({ taskList, onToggleComplete, onDeleteTask, onE
     return `${year}-${month}-${day}`;
   };
 
-  // Tính Ngày Hôm Nay & Ngày Mai
   const nowObj = new Date();
   const tomorrowObj = new Date();
   tomorrowObj.setDate(nowObj.getDate() + 1);
@@ -26,68 +43,129 @@ export default function TaskList({ taskList, onToggleComplete, onDeleteTask, onE
 
   const safeTaskList = Array.isArray(taskList) ? taskList : [];
 
-  // Lọc task Hôm Nay
   const todayTasks = safeTaskList
-    .filter(t => {
+    .filter((t) => {
       if (!t || t.completed) return false;
-      // Trường hợp có dateKey khớp HOẶC kiểm tra chuỗi ngày trong dateTimeStr
       if (t.dateKey === todayKey) return true;
       if (t.dateTimeStr) {
         const [dPart] = t.dateTimeStr.split(' ');
         const [day, month, year] = (dPart || '').split('/').map(Number);
-        return day === nowObj.getDate() && month === (nowObj.getMonth() + 1) && year === nowObj.getFullYear();
+        return (
+          day === nowObj.getDate() &&
+          month === nowObj.getMonth() + 1 &&
+          year === nowObj.getFullYear()
+        );
       }
       return false;
     })
     .sort((a, b) => (a?.timestamp || 0) - (b?.timestamp || 0));
 
-  // Lọc task Ngày Mai (Xử lý đa tầng an toàn)
   const tomorrowTasks = safeTaskList
-    .filter(t => {
+    .filter((t) => {
       if (!t || t.completed) return false;
-      // 1. Kiểm tra theo dateKey chuẩn YYYY-MM-DD
       if (t.dateKey === tomorrowKey) return true;
-      
-      // 2. Fallback: Parse từ chuỗi dateTimeStr dạng DD/MM/YYYY
       if (t.dateTimeStr) {
         const [dPart] = t.dateTimeStr.split(' ');
         const [day, month, year] = (dPart || '').split('/').map(Number);
-        return day === tomorrowObj.getDate() && month === (tomorrowObj.getMonth() + 1) && year === tomorrowObj.getFullYear();
+        return (
+          day === tomorrowObj.getDate() &&
+          month === tomorrowObj.getMonth() + 1 &&
+          year === tomorrowObj.getFullYear()
+        );
       }
       return false;
     })
     .sort((a, b) => (a?.timestamp || 0) - (b?.timestamp || 0));
 
-  const renderTaskItem = (item, index) => (
-    <View key={`${item.id}-${index}`} style={styles.taskCard}>
-      <TouchableOpacity
-        style={styles.checkboxArea}
-        onPress={() => onToggleComplete(item.id)}
-      >
-        <View style={[styles.checkbox, item.completed && styles.checkedBox]}>
-          {item.completed && <Text style={styles.checkmark}>✓</Text>}
-        </View>
-      </TouchableOpacity>
+  const renderTaskItem = (item, index) => {
+    const isSubTasksCollapsed = !!collapsedTasks[item.id];
+    const isLoadingThisTask = loadingTaskId === item.id;
 
-      <View style={styles.taskInfo}>
-        <Text style={[styles.taskText, item.completed && styles.completedTaskText]}>
-          {item.text}
-        </Text>
-        {item.dateTimeStr && (
-          <Text style={styles.timeText}>⏰ {item.dateTimeStr}</Text>
+    return (
+      <View key={`${item.id}-${index}`} style={styles.taskCardContainer}>
+        <View style={styles.taskCard}>
+          <TouchableOpacity
+            style={styles.checkboxArea}
+            onPress={() => onToggleComplete(item.id)}
+          >
+            <View style={[styles.checkbox, item.completed && styles.checkedBox]}>
+              {item.completed && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.taskInfo}>
+            <Text style={[styles.taskText, item.completed && styles.completedTaskText]}>
+              {item.text}
+            </Text>
+            {item.dateTimeStr && (
+              <Text style={styles.timeText}>⏰ {item.dateTimeStr}</Text>
+            )}
+          </View>
+
+          <View style={styles.actionRow}>
+            {/* NÚT AI HỖ TRỢ VỚI TRẠNG THÁI LOADING */}
+            <TouchableOpacity
+              style={[styles.aiBtn, isLoadingThisTask && styles.aiBtnLoading]}
+              onPress={() => onBreakdownTask && onBreakdownTask(item.id)}
+              disabled={isLoadingThisTask}
+            >
+              {isLoadingThisTask ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator size="small" color="#8E44AD" />
+                  <Text style={styles.loadingBtnText}> Đang chia...</Text>
+                </View>
+              ) : (
+                <Text style={styles.aiBtnText}>🧩 AI</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.editBtn} onPress={() => onEditTask(item)}>
+              <Text style={styles.btnIcon}>✏️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteBtn} onPress={() => onDeleteTask(item.id)}>
+              <Text style={styles.btnIcon}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* CỤM SUB-TASKS CÓ THỂ THU GỌN / MỞ RỘNG */}
+        {Array.isArray(item.subTasks) && item.subTasks.length > 0 && (
+          <View style={styles.subTaskContainer}>
+            <TouchableOpacity
+              style={styles.subTaskHeaderRow}
+              onPress={() => toggleCollapse(item.id)}
+            >
+              <Text style={styles.subTaskHeaderTitle}>
+                💡 Gợi ý 3 bước chia nhỏ ({item.subTasks.filter(s => s.completed).length}/3)
+              </Text>
+              <Text style={styles.collapseIcon}>
+                {isSubTasksCollapsed ? '▼' : '▲'}
+              </Text>
+            </TouchableOpacity>
+
+            {!isSubTasksCollapsed && (
+              <View style={styles.subTaskList}>
+                {item.subTasks.map((sub) => (
+                  <TouchableOpacity
+                    key={sub.id}
+                    style={styles.subTaskRow}
+                    onPress={() => onToggleSubTask && onToggleSubTask(item.id, sub.id)}
+                  >
+                    <View style={[styles.subCheckbox, sub.completed && styles.subCheckedBox]}>
+                      {sub.completed && <Text style={styles.subCheckmark}>✓</Text>}
+                    </View>
+                    <Text style={[styles.subTaskText, sub.completed && styles.completedSubText]}>
+                      {sub.text}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         )}
       </View>
-
-      <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.editBtn} onPress={() => onEditTask(item)}>
-          <Text style={styles.btnIcon}>✏️</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => onDeleteTask(item.id)}>
-          <Text style={styles.btnIcon}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -147,15 +225,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FB8C00',
   },
   badgeText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
-  taskCard: {
+  taskCardContainer: {
+    marginBottom: 8,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    overflow: 'hidden',
+  },
+  taskCard: {
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   checkboxArea: { marginRight: 10 },
   checkbox: {
@@ -173,7 +254,34 @@ const styles = StyleSheet.create({
   taskText: { fontSize: 14, color: '#212121', fontWeight: '500' },
   completedTaskText: { textDecorationLine: 'line-through', color: '#9E9E9E' },
   timeText: { fontSize: 11, color: '#757575', marginTop: 4 },
-  actionRow: { flexDirection: 'row' },
+  actionRow: { flexDirection: 'row', alignItems: 'center' },
+  aiBtn: {
+    backgroundColor: '#F3E5F5',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#8E44AD',
+  },
+  aiBtnLoading: {
+    backgroundColor: '#F3E5F5',
+    borderColor: '#8E44AD',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingBtnText: {
+    fontSize: 10,
+    color: '#8E44AD',
+    fontWeight: 'bold',
+  },
+  aiBtnText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#8E44AD',
+  },
   editBtn: { padding: 4, marginRight: 6 },
   deleteBtn: { padding: 4 },
   btnIcon: { fontSize: 15 },
@@ -183,5 +291,65 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginVertical: 6,
     marginLeft: 4,
+  },
+  // STYLES CHO SUB-TASKS & COLLAPSE
+  subTaskContainer: {
+    backgroundColor: '#FAF5FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3E5F5',
+  },
+  subTaskHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  subTaskHeaderTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#8E44AD',
+  },
+  collapseIcon: {
+    fontSize: 11,
+    color: '#8E44AD',
+    fontWeight: 'bold',
+  },
+  subTaskList: {
+    marginTop: 6,
+  },
+  subTaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+    paddingLeft: 4,
+  },
+  subCheckbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#8E44AD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  subCheckedBox: {
+    backgroundColor: '#8E44AD',
+  },
+  subCheckmark: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  subTaskText: {
+    fontSize: 13,
+    color: '#424242',
+    flex: 1,
+  },
+  completedSubText: {
+    textDecorationLine: 'line-through',
+    color: '#BDBDBD',
   },
 });

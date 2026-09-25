@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { parseTaskFromVoice, getGeminiReport } from './groqService';
+import { 
+  parseTaskFromVoice, 
+  getGeminiReport, 
+  breakdownTaskWithAi 
+} from './groqService';
 import {
   addEventToNativeCalendar,
   deleteEventFromNativeCalendar,
@@ -20,6 +24,7 @@ export function useTasks() {
   const [loadingAi, setLoadingAi] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [loadingTaskId, setLoadingTaskId] = useState(null); // Trạng thái loading chia nhỏ cho từng task
 
   useEffect(() => {
     registerForPushNotificationsAsync();
@@ -55,7 +60,7 @@ export function useTasks() {
     try {
       let tasksArray = tasks;
 
-      // Nếu tasks truyền vào là một hàm updater (prev => ...), giải phỏng thành mảng thực tế
+      // Nếu tasks truyền vào là một hàm updater (prev => ...), giải phóng thành mảng thực tế
       if (typeof tasks === 'function') {
         tasksArray = tasks(taskList);
       }
@@ -143,6 +148,7 @@ export function useTasks() {
       dateTimeStr: formattedDateTime,
       dateKey,
       timestamp: targetDate.getTime(),
+      subTasks: [], // Khởi tạo mảng subTasks rỗng
     };
 
     const addedText = taskInput;
@@ -215,6 +221,7 @@ export function useTasks() {
           dateTimeStr: formattedDateTime,
           dateKey,
           timestamp: targetDate.getTime(),
+          subTasks: [],
         };
 
         await saveTasks([...taskList, newTask]);
@@ -255,6 +262,50 @@ export function useTasks() {
     }
   };
 
+  // 🧩 4. HÀM CHIA NHỎ TASK KHÓ BẰNG AI (SUB-TASKS)
+  const handleBreakdownTask = async (taskId) => {
+    const targetTask = taskList.find((t) => String(t.id) === String(taskId));
+    if (!targetTask) return;
+
+    setLoadingTaskId(taskId);
+    try {
+      const generatedSubTasks = await breakdownTaskWithAi(targetTask.text);
+
+      const updatedList = taskList.map((t) => {
+        if (String(t.id) === String(taskId)) {
+          return {
+            ...t,
+            subTasks: generatedSubTasks, // Lưu mảng sub-tasks vào task mẹ
+          };
+        }
+        return t;
+      });
+
+      await saveTasks(updatedList);
+      showToast('🎉 AI đã chia nhỏ công việc!');
+    } catch (err) {
+      console.log('Lỗi khi chia nhỏ công việc:', err);
+      Alert.alert('❌ Lỗi', 'Không thể chia nhỏ công việc lúc này.');
+    } finally {
+      setLoadingTaskId(null);
+    }
+  };
+
+  // 🔘 5. HÀM ĐÁNH DẤU HOÀN THÀNH SUB-TASK CON
+  const toggleSubTask = async (taskId, subTaskId) => {
+    const updatedList = taskList.map((t) => {
+      if (String(t.id) === String(taskId) && Array.isArray(t.subTasks)) {
+        const updatedSubTasks = t.subTasks.map((st) =>
+          String(st.id) === String(subTaskId) ? { ...st, completed: !st.completed } : st
+        );
+        return { ...t, subTasks: updatedSubTasks };
+      }
+      return t;
+    });
+
+    await saveTasks(updatedList);
+  };
+
   const toggleTaskComplete = async (id) => {
     const updatedList = taskList.map((t) =>
       String(t.id) === String(id) ? { ...t, completed: !t.completed } : t
@@ -282,7 +333,7 @@ export function useTasks() {
     }
   };
 
-  // ✏️ HÀM SỬA TRỰC TIẾP
+  // ✏️ HÀM SỬA TRỰC TIẾP (AN TOÀN BẢO TỒN MẢNG SUBTASKS)
   const saveEditedTaskService = async ({
     editingTaskId,
     editTitle,
@@ -351,9 +402,12 @@ export function useTasks() {
     loadingAi,
     isSyncing,
     statusMsg,
+    loadingTaskId,
     handleManualAddTask,
     handleAiParseTask,
     handleGetReport,
+    handleBreakdownTask,
+    toggleSubTask,
     toggleTaskComplete,
     deleteTask,
     handleSyncCalendar,

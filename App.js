@@ -25,7 +25,7 @@ import { useNotes } from './useNotes';
 export default function App() {
   const [activeTab, setActiveTab] = useState('tasks');
 
-  // Lấy state & hàm từ useTasks
+  // Lấy state & hàm từ useTasks (Đã bổ sung 3 hàm/state xử lý Sub-tasks)
   const {
     taskList,
     taskInput,
@@ -35,9 +35,12 @@ export default function App() {
     loadingAi,
     isSyncing,
     statusMsg,
+    loadingTaskId,       // 👈 State loading khi chia nhỏ task
     handleManualAddTask,
     handleAiParseTask,
     handleGetReport,
+    handleBreakdownTask, // 👈 Hàm chia nhỏ task bằng AI
+    toggleSubTask,       // 👈 Hàm tích chọn hoàn thành sub-task
     toggleTaskComplete,
     deleteTask,
     handleSyncCalendar,
@@ -114,6 +117,9 @@ export default function App() {
               onToggleComplete={toggleTaskComplete}
               onDeleteTask={deleteTask}
               onEditTask={openEditModal}
+              onBreakdownTask={handleBreakdownTask}
+              onToggleSubTask={toggleSubTask}
+              loadingTaskId={loadingTaskId}
             />
 
             {/* 4. LỊCH SỬ CÔNG VIỆC ĐÃ HOÀN THÀNH */}

@@ -277,3 +277,47 @@ export function generateLocalReport(taskList = []) {
 
   return reportLines.join('\n');
 }
+/**
+ * 4. AI HỖ TRỢ CHIA NHỎ TASK KHÓ THÀNH CÁC SUB-TASKS
+ */
+/**
+ * 4. AI HỖ TRỢ CHIA NHỎ TASK KHÓ THÀNH CÁC SUB-TASKS (XỬ LÝ ẨN KẾT QUẢ KHI LỖI)
+ */
+export async function breakdownTaskWithAi(taskText) {
+  if (!taskText) return [];
+
+  const promptText = `Công việc: "${taskText}".
+Hãy chia nhỏ công việc này thành 3 bước ngắn gọn.
+Chỉ trả về JSON duy nhất theo mẫu: {"steps": ["Bước 1", "Bước 2", "Bước 3"]}`;
+
+  try {
+    const resultText = await callGroqApi(promptText, true);
+    
+    // Làm sạch chuỗi trước khi ép kiểu JSON
+    const cleanText = resultText.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanText);
+
+    let stepsArray = [];
+    if (Array.isArray(parsed)) {
+      stepsArray = parsed;
+    } else if (parsed && Array.isArray(parsed.steps)) {
+      stepsArray = parsed.steps;
+    } else if (parsed && typeof parsed === 'object') {
+      stepsArray = Object.values(parsed);
+    }
+
+    if (!stepsArray || stepsArray.length === 0) {
+      return []; // Trả về mảng rỗng để ẩn hoàn toàn UI gợi ý
+    }
+
+    return stepsArray.slice(0, 3).map((stepText, index) => ({
+      id: `sub_${Date.now()}_${index}`,
+      text: String(stepText),
+      completed: false,
+    }));
+  } catch (err) {
+    console.log('Lỗi AI chia nhỏ task (Ẩn UI kết quả):', err.message);
+    // 🛡️ TRẢ VỀ MẢNG RỖNG KHI LỖI ĐỂ KHÔNG HIỂN THỊ UI RÁC
+    return [];
+  }
+}
