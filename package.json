@@ -8,7 +8,7 @@
   "android": "expo start --android",
   "ios": "expo start --ios",
   "web": "expo start --web",
-  "build": "npx expo export --platform web",
+  "build": "npx expo export --platform web && sed -i '' 's|src=\"/_expo|src=\"/Todo-AI/_expo|g' dist/index.html",
   "predeploy": "npm run build",
   "deploy": "gh-pages -d dist --dotfiles --nojekyll"
 },
