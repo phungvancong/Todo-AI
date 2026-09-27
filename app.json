@@ -1,12 +1,12 @@
 {
   "expo": {
     "name": "todo-AI",
-    "slug": "todo-AI",
+    "slug": "Todo-AI",
     "scheme": "todoai",
     "version": "1.0.0",
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "baseUrl": "/Todo-AI",
       "favicon": "./assets/favicon.png"
     },
@@ -24,7 +24,8 @@
     "android": {},
     "plugins": [
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-router"
     ]
   }
 }
