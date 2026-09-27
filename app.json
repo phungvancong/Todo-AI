@@ -1,9 +1,16 @@
 {
   "expo": {
-    "name": "todo-app",
-    "slug": "todo-app",
+    "name": "todo-AI",
+    "slug": "todo-AI",
     "scheme": "todoai",
     "version": "1.0.0",
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "baseUrl": "."
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,9 +23,6 @@
       "supportsTablet": true
     },
     "android": {},
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "plugins": [
       "expo-web-browser",
       "@react-native-community/datetimepicker"

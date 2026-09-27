@@ -1,7 +1,14 @@
 {
-  "name": "todo-app",
+  "name": "todo-AI",
   "version": "1.0.0",
   "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "deploy": "gh-pages -d dist --dotfiles"
+  },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
@@ -19,11 +26,8 @@
     "react-native": "0.86.3",
     "react-native-calendars": "^1.1314.0"
   },
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   },
   "private": true
 }
