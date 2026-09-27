@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "homepage": "https://phungvancong.github.io/Todo-AI",
   "main": "index.js",
-  "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "build": "npx expo export --platform web",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist --dotfiles --nojekyll"
-  },
+"scripts": {
+  "start": "expo start",
+  "android": "expo start --android",
+  "ios": "expo start --ios",
+  "web": "expo start --web",
+  "build": "npx expo export --platform web",
+  "predeploy": "npm run build",
+  "deploy": "gh-pages -d dist --dotfiles --nojekyll"
+},
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
     "@react-native-async-storage/async-storage": "2.2.0",
