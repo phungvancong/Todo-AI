@@ -6,10 +6,9 @@
     "version": "1.0.0",
     "web": {
       "bundler": "metro",
+      "output": "static",
+      "baseUrl": "/Todo-AI",
       "favicon": "./assets/favicon.png"
-    },
-    "experiments": {
-      "baseUrl": "."
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
